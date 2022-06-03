@@ -1,0 +1,10 @@
+package br.com.othonbatista.crud.repository;
+
+import br.com.othonbatista.crud.model.Product;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface ProductRepository extends JpaRepository<Product, Long> {
+
+}
