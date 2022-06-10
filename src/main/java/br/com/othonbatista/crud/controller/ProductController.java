@@ -3,6 +3,7 @@ package br.com.othonbatista.crud.controller;
 import br.com.othonbatista.crud.dto.ResponseDto;
 import br.com.othonbatista.crud.model.Product;
 import br.com.othonbatista.crud.repository.ProductRepository;
+import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,48 +11,45 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
 
-// TODO: Não deixar que ocorra CORS nas solicitações (permita todas as origens)
 
-// TODO: tratar as exeções que podem ocorrer com bancos de dados
-
-// TODO: validar os parâmetros quando necessário
 @RestController
 @RequestMapping({"/products"})
+@CrossOrigin(origins = "*")
+@AllArgsConstructor
 public class ProductController {
 
     private final ProductRepository productRepository;
 
-    public ProductController(ProductRepository productRepository) {
-        this.productRepository = productRepository;
-    }
-
-    // TODO: Estes dois métodos na prática devem ser apenas um, o que recebe o id no path
-    @GetMapping
-    public ResponseEntity<List<Product>> getAll() {
-
-        List<Product> listProducts = productRepository.findAll();
-
-        // TODO: Retornar os produtos no formato requerido pelo frontend angular
-//        ResponseDto responseDto = new ResponseDto(listProducts);
-
-        return new ResponseEntity<>(listProducts, HttpStatus.OK);
-    }
-
-    // TODO: Apenas este método deve existir. Quando o id é fornecido recupera o produto com o id.
-    // TODO: Quando o id não é fornecido, recupera todos os produtos.
-    @GetMapping(path = {"/{id}"})
-    public ResponseEntity<Optional<Product>> getById(@PathVariable long id) {
+    @GetMapping(path = {"/{id}", ""})
+    public ResponseEntity<Object> getById(@PathVariable(required = false) Optional<Long> id) {
 
         HttpStatus status = HttpStatus.OK;
+        Object retorno = null;
 
-        Optional<Product> product = productRepository.findById(id);
+        if (id.isPresent()) {
 
-        // TODO: Como retornar uma mensagem se não houver o produto consultado
-        if (!product.isPresent()) {
-            // ?????
+            Optional<Product> product = productRepository.findById(id.get());
+
+            if (product.isPresent()) {
+
+                retorno = product;
+                status = HttpStatus.OK;
+
+            } else {
+
+                retorno = "O Produto de id " + id.get() + " não existe!";
+                status = HttpStatus.NOT_FOUND;
+            }
+
+        } else {
+
+            List<Product> listProducts = productRepository.findAll();
+
+            retorno = listProducts;
+            status = HttpStatus.OK;
         }
 
-        return new ResponseEntity<Optional<Product>>(product, HttpStatus.OK);
+        return new ResponseEntity<>(retorno, status);
     }
 
     @PostMapping
@@ -63,46 +61,75 @@ public class ProductController {
     }
 
     @PutMapping(path = {"/{id}"})
-    public ResponseEntity<String> updateProductById(@PathVariable long id, @RequestBody Product product) {
+    public ResponseEntity<Object> updateProductById(@PathVariable long id, @RequestBody Product product) {
 
-        String message = null;
+        Object retorno = null;
         HttpStatus status = HttpStatus.OK;
 
         Optional<Product> productSaved = productRepository.findById(id);
 
         if (productSaved.isPresent()) {
 
-            Product productToUpdate = productSaved.get();
+            Product productAfter = productSaved.get();
 
-            productToUpdate.setDescription(product.getDescription());
-            productToUpdate.setQuantity(product.getQuantity());
-            productToUpdate.setPrice(product.getPrice());
-            productToUpdate.setImageUrl(product.getImageUrl());
-            productToUpdate.setName(product.getName());
+            Product productBefore = new Product(
+                    id,
+                    productAfter.getName(),
+                    productAfter.getDescription(),
+                    productAfter.getPrice(),
+                    productAfter.getImageUrl(),
+                    productAfter.getQuantity()
+            );
 
-            productRepository.save(productToUpdate);
+            productAfter.setDescription(product.getDescription());
+            productAfter.setQuantity(product.getQuantity());
+            productAfter.setPrice(product.getPrice());
+            productAfter.setImageUrl(product.getImageUrl());
+            productAfter.setName(product.getName());
 
-            message = "O produto com id " + id + " foi alterado com sucesso!!!";
+            productRepository.save(productAfter);
+
+            ResponseDto responseDto = new ResponseDto(
+                    productBefore,
+                    productAfter,
+                    "O produto com id " + id + " foi alterado com sucesso!!!"
+            );
+
+            retorno = responseDto;
             status = HttpStatus.CREATED;
 
         } else {
 
-            message = "O produto com id " + id + " não existe!";
+            retorno = "O produto com id " + id + " não existe!";
             status = HttpStatus.NOT_FOUND;
 
         }
 
-        return new ResponseEntity<String>(message, status);
+        return new ResponseEntity<>(retorno, status);
     }
 
     @DeleteMapping(path = {"/{id}"})
-    public ResponseEntity<Optional<Product>> deleteProductById(@PathVariable long id) {
+    public ResponseEntity<Object> deleteProductById(@PathVariable long id) {
+
+        Object retorno;
+        HttpStatus status;
 
         Optional<Product> productSaved = productRepository.findById(id);
 
-        productRepository.deleteById(id);
+        if (productSaved.isPresent()) {
 
-        return new ResponseEntity<Optional<Product>>(productSaved, HttpStatus.OK);
+            retorno = productSaved;
+            status = HttpStatus.OK;
+
+            productRepository.deleteById(id);
+
+        } else {
+
+            retorno = "O produto com id " + id + " não existe!";
+            status = HttpStatus.NOT_FOUND;
+        }
+
+        return new ResponseEntity<>(retorno, status);
     }
 
 }
